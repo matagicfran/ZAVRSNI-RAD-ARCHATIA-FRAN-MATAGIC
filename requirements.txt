@@ -1,0 +1,7 @@
+# ARCHATIA dependencies
+#
+# Trenutno projekt koristi samo Python standardnu biblioteku:
+# - tkinter
+# - ctypes
+#
+# Vanjske biblioteke za sada nisu potrebne.
