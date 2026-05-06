@@ -1,3 +1,4 @@
+# Boje aplikacije
 COLORS = {
     "app_bg": "#1F1F1D",
     "panel_bg": "#2A2926",
@@ -18,6 +19,7 @@ COLORS = {
     "danger_hover": "#49312B",
 }
 
+# Fontovi koji se koriste u GUI-u
 FONTS = {
     "brand": ("Segoe UI", 23, "bold"),
     "title": ("Segoe UI", 18, "bold"),
@@ -31,6 +33,7 @@ FONTS = {
     "empty_icon": ("Segoe UI Symbol", 28),
 }
 
+# Osnovne dimenzije elemenata
 LAYOUT = {
     "sidebar_width": 280,
     "history_width": 390,
