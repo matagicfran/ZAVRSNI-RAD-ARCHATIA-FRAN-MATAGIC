@@ -2,6 +2,7 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox
 
+from core.image_processor import prepare_image
 from gui.styles import COLORS, FONTS, LAYOUT
 from gui.widgets import Card, Divider, SectionLabel, SidebarButton
 
@@ -16,6 +17,7 @@ class EnhancedGUI:
 
         # Podaci o trenutno odabranoj slici
         self.selected_image_path = None
+        self.processed_image_path = None
         self.preview_photo = None
 
         self.setup_ui()
@@ -361,6 +363,9 @@ class EnhancedGUI:
 
         try:
             self._show_image_preview(file_path)
+            processing_result = prepare_image(file_path)
+            self.processed_image_path = processing_result["processed_path"]
+            self._show_selected_image_info(Path(file_path), processing_result)
         except ImportError:
             messagebox.showerror(
                 "Nedostaje biblioteka",
@@ -403,20 +408,33 @@ class EnhancedGUI:
             wraplength=max(self.image_preview_frame.winfo_width() - 60, 360),
         )
         self._set_status(f"Odabrana slika: {image_path.name}")
-        self._show_selected_image_info(image_path)
 
-    def _show_selected_image_info(self, image_path):
+    def _show_selected_image_info(self, image_path, processing_result):
         # Ispis osnovnih informacija o slici
         self.results_text.configure(state=tk.NORMAL)
         self.results_text.delete("1.0", tk.END)
         self.results_text.insert(tk.END, "Slika je odabrana\n", "title")
         self.results_text.insert(
             tk.END,
-            "Preview je učitan i slika je spremna za analizu.\n\n",
+            "Preview je učitan, a cijela slika je pripremljena za analizu bez resizea.\n\n",
             "normal",
         )
         self.results_text.insert(tk.END, f"Naziv datoteke: {image_path.name}\n", "muted")
         self.results_text.insert(tk.END, f"Lokacija: {image_path}\n", "muted")
+        self.results_text.insert(
+            tk.END,
+            f"Pripremljena slika: {processing_result['processed_path']}\n",
+            "muted",
+        )
+        self.results_text.insert(
+            tk.END,
+            (
+                "Format za model: "
+                f"RGB, {processing_result['processed_size'][0]}x{processing_result['processed_size'][1]}"
+                "\n"
+            ),
+            "muted",
+        )
         self.results_text.configure(state=tk.DISABLED)
 
     def _set_status(self, message):

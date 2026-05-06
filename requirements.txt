@@ -1,4 +1,4 @@
 # ARCHATIA dependencies
 
-# Prikaz i obrada previewa slike u GUI-u
+# Prikaz previewa slike u GUI-u i priprema slike u image processoru
 Pillow>=10.0.0
