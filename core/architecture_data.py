@@ -28,7 +28,7 @@ ARCHITECTURE_STYLES = [
     },
     {
         "id": "byzantine",
-        "name": "Bizantska arhitektura",
+        "name": "Bizant",
         "period": "330. - 1453.",
         "regions": ["Bizant", "Balkan", "Mala Azija", "Istočni Mediteran"],
         "materials": ["opeka", "kamen", "mozaik", "mramor"],

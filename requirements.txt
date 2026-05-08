@@ -2,6 +2,8 @@
 
 # Prikaz previewa slike i priprema slike
 Pillow>=10.0.0
+tkinterdnd2>=0.4.3
+windnd>=1.0.7
 
 # Lokalni AI modeli i CLIP detekcija
 torch>=2.0.0

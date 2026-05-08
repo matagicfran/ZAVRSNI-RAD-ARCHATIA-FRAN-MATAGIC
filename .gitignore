@@ -3,3 +3,5 @@ __pycache__/
 venv/
 .env
 models/
+data/processed/
+data/history/

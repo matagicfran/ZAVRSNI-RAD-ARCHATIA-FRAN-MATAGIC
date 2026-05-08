@@ -36,7 +36,7 @@ FONTS = {
 # Osnovne dimenzije elemenata
 LAYOUT = {
     "sidebar_width": 280,
-    "history_width": 390,
+    "history_width": 440,
     "outer_pad": 26,
     "panel_pad": 22,
     "button_padx": 18,

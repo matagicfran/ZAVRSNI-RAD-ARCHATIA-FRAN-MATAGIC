@@ -1,5 +1,6 @@
 import tkinter as tk
 import threading
+from datetime import datetime
 from pathlib import Path
 from tkinter import filedialog, messagebox
 
@@ -8,6 +9,12 @@ from core.image_processor import prepare_image
 from core.model_loader import ModelManager
 from gui.styles import COLORS, FONTS, LAYOUT
 from gui.widgets import Card, Divider, SectionLabel, SidebarButton
+from utils.helpers import (
+    clear_analysis_history,
+    load_analysis_history,
+    save_analysis_history,
+    shorten_filename,
+)
 
 
 class EnhancedGUI:
@@ -24,8 +31,14 @@ class EnhancedGUI:
         self.preview_photo = None
         self.model_manager = ModelManager()
         self.detector = ArchitectureDetector(self.model_manager)
+        self.analysis_history = load_analysis_history()
+        self.last_analysis_results = []
+        self.model_loading = True
+        self.loading_animation_step = 0
+        self.drop_enabled = False
 
         self.setup_ui()
+        self._sync_analyze_button()
         self._load_models_async()
 
     def setup_ui(self):
@@ -34,7 +47,8 @@ class EnhancedGUI:
         self._build_sidebar()
         self._build_history()
         self._build_main()
-        self._set_status("Učitavanje modela...")
+        self._set_status("AI model se učitava...")
+        self._animate_model_loading()
 
     def _build_shell(self):
         # Lijevi izbornik
@@ -110,6 +124,7 @@ class EnhancedGUI:
             text="Očisti povijest",
             icon="x",
             variant="danger",
+            command=self.clear_history,
         )
         self.btn_clear.pack(fill=tk.X, padx=LAYOUT["panel_pad"])
 
@@ -184,7 +199,7 @@ class EnhancedGUI:
             fg=COLORS["text_muted"],
         ).pack(anchor="w", pady=(4, 0))
 
-        # Tekstualni prikaz povijesti
+        # Kartice povijesti analiza
         history_wrap = Card(self.history_panel, bg=COLORS["surface"])
         history_wrap.pack(
             fill=tk.BOTH,
@@ -193,41 +208,37 @@ class EnhancedGUI:
             pady=(0, LAYOUT["panel_pad"]),
         )
 
-        self.history_box = tk.Text(
+        self.history_canvas = tk.Canvas(
             history_wrap,
             bg=COLORS["surface"],
-            fg=COLORS["text_secondary"],
-            font=FONTS["body"],
-            relief=tk.FLAT,
+            highlightthickness=0,
             bd=0,
-            wrap=tk.WORD,
-            padx=16,
-            pady=16,
-            cursor="arrow",
-            insertwidth=0,
-            selectbackground=COLORS["accent_dark"],
-            selectforeground=COLORS["text"],
         )
-
-        history_scroll = tk.Scrollbar(
+        self.history_scroll = tk.Scrollbar(
             history_wrap,
             orient=tk.VERTICAL,
-            command=self.history_box.yview,
+            command=self.history_canvas.yview,
             width=LAYOUT["scrollbar_width"],
-            bg=COLORS["surface_soft"],
-            troughcolor=COLORS["panel_bg"],
+            bg=COLORS["accent_dark"],
+            troughcolor=COLORS["panel_bg_alt"],
             activebackground=COLORS["accent"],
             relief=tk.FLAT,
             bd=0,
         )
-        self.history_box.configure(yscrollcommand=history_scroll.set)
-        history_scroll.pack(side=tk.RIGHT, fill=tk.Y)
-        self.history_box.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.history_canvas.configure(yscrollcommand=self.history_scroll.set)
+        self.history_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.history_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        self._write_readonly(
-            self.history_box,
-            "Još nema spremljenih analiza.\n\nNakon obrade slike, rezultati će se prikazati u ovom panelu.",
+        self.history_list = tk.Frame(self.history_canvas, bg=COLORS["surface"])
+        self.history_window = self.history_canvas.create_window(
+            (0, 0),
+            window=self.history_list,
+            anchor="nw",
         )
+        self.history_list.bind("<Configure>", self._update_history_scroll)
+        self.history_canvas.bind("<Configure>", self._resize_history_window)
+        self._bind_history_mousewheel()
+        self._render_history()
 
     def _build_main(self):
         # Desni glavni sadržaj
@@ -239,13 +250,35 @@ class EnhancedGUI:
             pady=LAYOUT["outer_pad"],
         )
 
+        header = tk.Frame(content, bg=COLORS["app_bg"])
+        header.pack(fill=tk.X)
+
         tk.Label(
-            content,
+            header,
             text="Radna površina",
             font=FONTS["title"],
             bg=COLORS["app_bg"],
             fg=COLORS["text"],
-        ).pack(anchor="w")
+        ).pack(side=tk.LEFT)
+
+        self.btn_reset_workspace = tk.Button(
+            header,
+            text="Očisti",
+            font=FONTS["button"],
+            bg=COLORS["surface"],
+            fg=COLORS["text"],
+            activebackground=COLORS["surface_hover"],
+            activeforeground=COLORS["text"],
+            relief=tk.FLAT,
+            bd=0,
+            cursor="hand2",
+            command=self.reset_workspace,
+            padx=16,
+            pady=8,
+            highlightthickness=1,
+            highlightbackground=COLORS["border_soft"],
+        )
+        self.btn_reset_workspace.pack(side=tk.RIGHT)
 
         tk.Label(
             content,
@@ -296,7 +329,7 @@ class EnhancedGUI:
 
         self.image_hint_label = tk.Label(
             self.image_info_frame,
-            text="Koristite gumb 'Odaberi sliku' u lijevom izborniku.",
+            text="Koristite gumb 'Odaberi sliku' ili povucite fotografiju ovdje.",
             font=FONTS["body"],
             bg=COLORS["surface"],
             fg=COLORS["text_muted"],
@@ -304,6 +337,108 @@ class EnhancedGUI:
             wraplength=760,
         )
         self.image_hint_label.pack(fill=tk.X, pady=(3, 0))
+        self._setup_drag_and_drop()
+
+    def _setup_drag_and_drop(self):
+        # Drag-and-drop radi kada je dostupan tkinterdnd2 root.
+        try:
+            from tkinterdnd2 import DND_FILES
+        except ImportError:
+            self._setup_windows_drag_and_drop()
+            return
+
+        drop_widgets = (
+            self.image_card,
+            self.image_preview_frame,
+            self.image_area,
+            self.image_label,
+            self.image_info_frame,
+            self.image_title_label,
+            self.image_hint_label,
+        )
+
+        for widget in drop_widgets:
+            try:
+                widget.drop_target_register(DND_FILES)
+                widget.dnd_bind("<<Drop>>", self._handle_image_drop)
+                widget.dnd_bind("<<DragEnter>>", self._handle_drag_enter)
+                widget.dnd_bind("<<DragLeave>>", self._handle_drag_leave)
+            except tk.TclError:
+                self._setup_windows_drag_and_drop()
+                return
+
+        self.drop_enabled = True
+
+    def _setup_windows_drag_and_drop(self):
+        # Fallback za Windows kada tkinterdnd2 nije dostupan.
+        try:
+            import windnd
+        except ImportError:
+            return
+
+        drop_widgets = (
+            self.image_card,
+            self.image_preview_frame,
+            self.image_area,
+            self.image_label,
+            self.image_info_frame,
+            self.image_title_label,
+            self.image_hint_label,
+        )
+
+        for widget in drop_widgets:
+            try:
+                windnd.hook_dropfiles(widget, func=self._handle_windnd_drop)
+            except Exception:
+                continue
+
+        self.drop_enabled = True
+
+    def _handle_windnd_drop(self, files):
+        if not files:
+            return
+
+        first_file = files[0]
+        if isinstance(first_file, bytes):
+            first_file = first_file.decode("utf-8", errors="ignore")
+        self._load_dropped_image(first_file)
+
+    def _handle_drag_enter(self, _event):
+        self.image_card.configure(highlightbackground=COLORS["accent"])
+        self.image_hint_label.configure(text="Otpustite fotografiju za odabir.")
+
+    def _handle_drag_leave(self, _event):
+        self.image_card.configure(highlightbackground=COLORS["border_soft"])
+        self._refresh_image_hint()
+
+    def _handle_image_drop(self, event):
+        self.image_card.configure(highlightbackground=COLORS["border_soft"])
+        dropped_paths = self.root.tk.splitlist(event.data)
+        if not dropped_paths:
+            self._refresh_image_hint()
+            return
+
+        self._load_dropped_image(dropped_paths[0])
+
+    def _load_dropped_image(self, dropped_path):
+        image_path = Path(dropped_path)
+        if image_path.suffix.lower() not in {".jpg", ".jpeg", ".png", ".bmp", ".webp"}:
+            messagebox.showwarning(
+                "Nepodržana datoteka",
+                "Povucite JPG, PNG, BMP ili WEBP fotografiju građevine.",
+            )
+            self._refresh_image_hint()
+            return
+
+        self._load_selected_image(image_path)
+
+    def _refresh_image_hint(self):
+        if self.selected_image_path:
+            self.image_hint_label.configure(text=str(self.selected_image_path))
+        else:
+            self.image_hint_label.configure(
+                text="Koristite gumb 'Odaberi sliku' ili povucite fotografiju ovdje."
+            )
 
     def _build_results_panel(self, parent):
         # Prozor za rezultate analize
@@ -320,6 +455,22 @@ class EnhancedGUI:
 
         results_wrap = Card(parent, bg=COLORS["surface"])
         results_wrap.pack(fill=tk.BOTH, expand=True)
+
+        self.results_back_button = tk.Button(
+            results_wrap,
+            text="Povratak",
+            font=FONTS["button"],
+            bg=COLORS["surface_hover"],
+            fg=COLORS["text"],
+            activebackground=COLORS["accent"],
+            activeforeground=COLORS["panel_bg_alt"],
+            relief=tk.FLAT,
+            bd=0,
+            cursor="hand2",
+            command=self._return_to_results,
+            padx=14,
+            pady=8,
+        )
 
         self.results_text = tk.Text(
             results_wrap,
@@ -351,6 +502,7 @@ class EnhancedGUI:
         self.results_text.configure(yscrollcommand=results_scroll.set)
         results_scroll.pack(side=tk.RIGHT, fill=tk.Y)
         self.results_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.results_back_button.pack_forget()
 
         # Stilovi za tekst rezultata
         self.results_text.tag_configure(
@@ -390,20 +542,7 @@ class EnhancedGUI:
             spacing3=6,
         )
 
-        self.results_text.configure(state=tk.NORMAL)
-        self.results_text.insert(tk.END, "Dobrodošli u ARCHATIA\n", "title")
-        self.results_text.insert(
-            tk.END,
-            "Sustav je spreman za analizu arhitektonskog stila.\n\n",
-            "normal",
-        )
-        for step in (
-            "1. Odaberite fotografiju građevine.",
-            "2. Pokrenite analizu stila.",
-            "3. Pregledajte rezultat i spremljenu povijest.",
-        ):
-            self.results_text.insert(tk.END, f"{step}\n", "muted")
-        self.results_text.configure(state=tk.DISABLED)
+        self._show_model_loading_message()
 
     def select_image(self):
         # Otvaranje prozora za odabir slike
@@ -419,23 +558,32 @@ class EnhancedGUI:
         if not file_path:
             return
 
+        self._load_selected_image(file_path)
+
+    def _load_selected_image(self, file_path):
+        # Ucitavanje slike iz dijaloga ili drag-and-drop zone
         try:
             self._show_image_preview(file_path)
             processing_result = prepare_image(file_path)
             self.processed_image_path = processing_result["processed_path"]
             self._show_selected_image_info(Path(file_path), processing_result)
+            if self._current_image_has_history():
+                self._show_already_analyzed_message()
+            self._sync_analyze_button()
         except ImportError:
             messagebox.showerror(
                 "Nedostaje biblioteka",
                 "Za prikaz slike potrebno je instalirati Pillow:\n\npip install -r requirements.txt",
             )
             self._set_status("Pillow nije instaliran.")
+            self._sync_analyze_button()
         except Exception as error:
             messagebox.showerror(
                 "Greška pri učitavanju slike",
                 f"Sliku nije moguće prikazati.\n\n{error}",
             )
             self._set_status("Odabrana slika se ne može prikazati.")
+            self._sync_analyze_button()
 
     def analyze_style(self):
         # Pokretanje analize odabrane slike
@@ -444,6 +592,11 @@ class EnhancedGUI:
                 "Nije odabrana slika",
                 "Prvo odaberite sliku za analizu.",
             )
+            return
+
+        if self._current_image_has_history():
+            self._set_status("Ova slika je već u povijesti analiza.")
+            self._sync_analyze_button()
             return
 
         image_path = self.processed_image_path or self.selected_image_path
@@ -477,8 +630,10 @@ class EnhancedGUI:
         )
         self.results_text.configure(state=tk.DISABLED)
 
-    def _show_analysis_results(self, results):
+    def _show_analysis_results(self, results, save_to_history=True):
         # Prikaz rezultata analize u GUI-u
+        self.last_analysis_results = results
+        self.results_back_button.pack_forget()
         self.results_text.configure(state=tk.NORMAL)
         self.results_text.delete("1.0", tk.END)
         self.results_text.insert(tk.END, "Arhitektonski stil\n", "title")
@@ -493,20 +648,39 @@ class EnhancedGUI:
             )
             for index, result in enumerate(results, start=1):
                 percent = result["confidence"] * 100
-                level_label, level_tag, level_icon = self._confidence_level(percent)
+                level_label, level_tag, level_icon, _level_color = self._confidence_level(percent)
+                result_tag = f"result_{index}"
                 self.results_text.insert(
                     tk.END,
-                    f"{index}. {result['name']}\n",
-                    "normal",
+                    f"{index}. {self._display_style_name(result['name'])}\n",
+                    ("normal", result_tag),
                 )
                 self.results_text.insert(
                     tk.END,
                     f"{level_icon} Pouzdanost: {level_label} ({percent:.1f}%)\n\n",
-                    level_tag,
+                    (level_tag, result_tag),
                 )
+                self.results_text.tag_configure(result_tag, lmargin1=0, lmargin2=0)
+                self.results_text.tag_bind(
+                    result_tag,
+                    "<Button-1>",
+                    lambda _event, item=result: self._show_style_details(item),
+                )
+                self.results_text.tag_bind(
+                    result_tag,
+                    "<Enter>",
+                    lambda _event: self.results_text.configure(cursor="hand2"),
+                )
+                self.results_text.tag_bind(
+                    result_tag,
+                    "<Leave>",
+                    lambda _event: self.results_text.configure(cursor="arrow"),
+                )
+            if save_to_history:
+                self._add_history_entry(results[0], results)
 
         self.results_text.configure(state=tk.DISABLED)
-        self.btn_analyze.configure(state=tk.NORMAL)
+        self._sync_analyze_button()
         self._set_status("Analiza je završena.")
 
     def _show_analysis_error(self, error):
@@ -516,19 +690,139 @@ class EnhancedGUI:
         self.results_text.insert(tk.END, "Analiza nije uspjela\n", "title")
         self.results_text.insert(tk.END, str(error), "normal")
         self.results_text.configure(state=tk.DISABLED)
-        self.btn_analyze.configure(state=tk.NORMAL)
+        self._sync_analyze_button()
         self._set_status("Analiza nije uspjela.")
+
+    def _show_model_loading_message(self, dots="..."):
+        # Poruka u rezultatima dok se AI model učitava
+        self.results_back_button.pack_forget()
+        self.results_text.configure(state=tk.NORMAL)
+        self.results_text.delete("1.0", tk.END)
+        self.results_text.insert(tk.END, f"AI model se učitava{dots}\n", "title")
+        self.results_text.insert(
+            tk.END,
+            "Pričekajte trenutak prije analize slike.",
+            "normal",
+        )
+        self.results_text.configure(state=tk.DISABLED)
+
+    def _show_ready_message(self):
+        # Početna poruka nakon što je AI model spreman
+        self.results_back_button.pack_forget()
+        self.results_text.configure(state=tk.NORMAL)
+        self.results_text.delete("1.0", tk.END)
+        self.results_text.insert(tk.END, "ARCHATIA je spremna\n", "title")
+        self.results_text.insert(
+            tk.END,
+            "Odaberite fotografiju građevine i pokrenite analizu stila.",
+            "normal",
+        )
+        self.results_text.configure(state=tk.DISABLED)
+
+    def _show_model_error_message(self):
+        # Poruka ako se AI model ne uspije učitati
+        self.results_back_button.pack_forget()
+        self.results_text.configure(state=tk.NORMAL)
+        self.results_text.delete("1.0", tk.END)
+        self.results_text.insert(tk.END, "AI model nije učitan\n", "title")
+        self.results_text.insert(
+            tk.END,
+            "Provjerite internet vezu i instalirane biblioteke pa ponovno pokrenite program.",
+            "normal",
+        )
+        self.results_text.configure(state=tk.DISABLED)
+
+    def _animate_model_loading(self):
+        # Jednostavna animacija točkica dok se model učitava
+        if not self.model_loading:
+            return
+
+        frames = (".", "..", "...", "..")
+        dots = frames[self.loading_animation_step % len(frames)]
+        self.loading_animation_step += 1
+        self._show_model_loading_message(dots)
+        self.root.after(500, self._animate_model_loading)
+
+    def _show_style_details(self, result):
+        # Detalji odabranog ponuđenog stila
+        percent = result["confidence"] * 100
+        level_label, level_tag, level_icon, _level_color = self._confidence_level(percent)
+        features = ", ".join(result.get("features", [])[:5]) or "nisu spremljeni"
+        materials = ", ".join(result.get("materials", [])[:4]) or "nije spremljeno"
+        regions = ", ".join(result.get("regions", [])[:4]) or "nije spremljeno"
+
+        self.results_text.configure(state=tk.NORMAL)
+        self.results_text.delete("1.0", tk.END)
+        self.results_text.insert(tk.END, f"{self._display_style_name(result['name'])}\n", "title")
+        self.results_text.insert(
+            tk.END,
+            f"{level_icon} Pouzdanost: {level_label} ({percent:.1f}%)\n\n",
+            level_tag,
+        )
+        self.results_text.insert(tk.END, "Što je ovaj stil?\n", "title")
+        self.results_text.insert(
+            tk.END,
+            (
+                f"Razdoblje: {result.get('period', 'nije navedeno')}\n"
+                f"Najčešće regije: {regions}\n"
+                f"Materijali: {materials}\n\n"
+            ),
+            "normal",
+        )
+        self.results_text.insert(tk.END, "Zašto ga je sustav odabrao?\n", "title")
+        self.results_text.insert(
+            tk.END,
+            f"Najvažniji vizualni tragovi: {features}.\n\n",
+            "normal",
+        )
+        self.results_text.configure(state=tk.DISABLED)
+        self.results_back_button.pack(side=tk.BOTTOM, fill=tk.X, padx=18, pady=(0, 16))
+
+    def _return_to_results(self):
+        # Povratak s detalja stila na popis rezultata
+        if self.last_analysis_results:
+            self._show_analysis_results(self.last_analysis_results, save_to_history=False)
 
     def _confidence_level(self, percent):
         # Razina pouzdanosti prema postotku rezultata
         if percent >= 60:
-            return "visoka", "high", "🟢"
+            return "velika", "high", "🟢", "#8DD694"
         if percent >= 30:
-            return "srednja", "medium", "🟡"
-        return "niska", "low", "🔴"
+            return "srednja", "medium", "🟡", COLORS["accent"]
+        return "mala", "low", "🔴", "#DFA08E"
+
+    def _display_style_name(self, style_name):
+        # Kraci nazivi su citljiviji u karticama i rezultatima.
+        aliases = {
+            "Staroegipatska arhitektura": "Egipat",
+            "Klasična grčka arhitektura": "Grčka",
+            "Rimska arhitektura": "Rim",
+            "Bizantska arhitektura": "Bizant",
+            "Islamska arhitektura": "Islam",
+            "Viktorijanska arhitektura": "Viktorijanski",
+            "High-tech arhitektura": "High-tech",
+            "Suvremena arhitektura": "Suvremena",
+            "Organska arhitektura": "Organska",
+            "Vernakularna arhitektura": "Vernakularna",
+            "Mediteranska arhitektura": "Mediteranska",
+            "Osmanska arhitektura": "Osmanska",
+            "Mogulska arhitektura": "Mogulska",
+            "Tradicionalna kineska arhitektura": "Kineska",
+            "Tradicionalna japanska arhitektura": "Japanska",
+            "Održiva / zelena arhitektura": "Održiva / zelena",
+        }
+        if style_name in aliases:
+            return aliases[style_name]
+        return style_name.replace(" arhitektura", "").replace(" Arhitektura", "")
 
     def _show_image_preview(self, file_path):
-        # Učitavanje i smanjivanje slike za preview
+        # Učitavanje odabrane slike u preview
+        image_path = self._load_preview_image(file_path)
+        self.selected_image_path = image_path
+        self._set_status("Slika je odabrana. Spremno za analizu.")
+
+    def _load_preview_image(self, file_path):
+        # Prikaz slike u preview prozoru
         from PIL import Image, ImageOps, ImageTk
 
         image_path = Path(file_path)
@@ -542,7 +836,6 @@ class EnhancedGUI:
         image.thumbnail((max_width, max_height), Image.Resampling.LANCZOS)
 
         self.preview_photo = ImageTk.PhotoImage(image)
-        self.selected_image_path = image_path
 
         self.image_label.configure(
             image=self.preview_photo,
@@ -555,7 +848,7 @@ class EnhancedGUI:
             text=str(image_path),
             wraplength=max(self.image_preview_frame.winfo_width() - 60, 360),
         )
-        self._set_status("Slika je odabrana. Spremno za analizu.")
+        return image_path
 
     def _show_selected_image_info(self, image_path, processing_result):
         # Ispis osnovnih informacija o slici
@@ -570,6 +863,46 @@ class EnhancedGUI:
         self.results_text.insert(tk.END, f"Naziv datoteke: {image_path.name}\n", "muted")
         self.results_text.insert(tk.END, f"Lokacija: {image_path}\n", "muted")
         self.results_text.configure(state=tk.DISABLED)
+
+    def _show_already_analyzed_message(self):
+        self.results_text.configure(state=tk.NORMAL)
+        self.results_text.delete("1.0", tk.END)
+        self.results_text.insert(tk.END, "Slika je već analizirana\n", "title")
+        self.results_text.insert(
+            tk.END,
+            "Rezultat za ovu fotografiju već postoji u povijesti analiza.",
+            "normal",
+        )
+        self.results_text.configure(state=tk.DISABLED)
+        self._set_status("Ova slika je već u povijesti analiza.")
+
+    def reset_workspace(self):
+        # Cisti samo radnu povrsinu i rezultate, povijest ostaje spremljena.
+        self.selected_image_path = None
+        self.processed_image_path = None
+        self.preview_photo = None
+        self.last_analysis_results = []
+        self.results_back_button.pack_forget()
+
+        self.image_label.configure(
+            image="",
+            text="📷",
+            width=0,
+            height=0,
+        )
+        self.image_title_label.configure(text="Nije odabrana slika")
+        self.image_hint_label.configure(
+            text="Koristite gumb 'Odaberi sliku' ili povucite fotografiju ovdje.",
+            wraplength=max(self.image_preview_frame.winfo_width() - 60, 360),
+        )
+
+        if self.model_loading:
+            self._set_status("AI model se učitava...")
+            self._show_model_loading_message()
+        else:
+            self._set_status("Spremno za odabir slike.")
+            self._show_ready_message()
+        self._sync_analyze_button()
 
     def _set_status(self, message):
         # Promjena statusa u lijevom izborniku
@@ -599,6 +932,7 @@ class EnhancedGUI:
 
     def _update_model_status(self, statuses):
         # Nakon učitavanja ostaje samo glavni status
+        self.model_loading = False
         self._set_model_progress(100)
         self.progress_frame.pack_forget()
         self.progress_label.pack_forget()
@@ -608,8 +942,264 @@ class EnhancedGUI:
                 self._set_status("Slika je odabrana. Spremno za analizu.")
             else:
                 self._set_status("Spremno za odabir slike.")
+            if not self.selected_image_path and not self.last_analysis_results:
+                self._show_ready_message()
         else:
             self._set_status("Model nije učitan. Provjerite internet vezu i biblioteke.")
+            self._show_model_error_message()
+
+        self._sync_analyze_button()
+
+    def _add_history_entry(self, top_result, results):
+        # Spremanje jedne analize u lokalnu povijest
+        if not self.selected_image_path:
+            return
+
+        percent = top_result["confidence"] * 100
+        level_label, _level_tag, _level_icon, level_color = self._confidence_level(percent)
+        entry = {
+            "style_name": top_result["name"],
+            "filename": Path(self.selected_image_path).name,
+            "image_path": str(self.selected_image_path),
+            "processed_image_path": str(self.processed_image_path) if self.processed_image_path else "",
+            "confidence": percent,
+            "confidence_label": level_label,
+            "color": level_color,
+            "created_at": datetime.now().isoformat(timespec="seconds"),
+            "results": results,
+        }
+        self.analysis_history.insert(0, entry)
+        self.analysis_history = self.analysis_history[:50]
+        save_analysis_history(self.analysis_history)
+        self._render_history()
+
+    def _render_history(self):
+        # Iscrtavanje povijesti analiza u srednjem panelu
+        for widget in self.history_list.winfo_children():
+            widget.destroy()
+
+        if not self.analysis_history:
+            self.history_scroll.pack_forget()
+            self.history_canvas.yview_moveto(0)
+            tk.Label(
+                self.history_list,
+                text="Još nema spremljenih analiza.",
+                font=FONTS["body"],
+                bg=COLORS["surface"],
+                fg=COLORS["text_muted"],
+                justify="left",
+                wraplength=LAYOUT["history_width"] - 80,
+            ).pack(anchor="w", padx=16, pady=16)
+            return
+
+        if not self.history_scroll.winfo_ismapped():
+            self.history_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+
+        for entry in self.analysis_history:
+            self._create_history_card(entry)
+
+    def _create_history_card(self, entry):
+        # Jedna kartica u povijesti analiza
+        card = tk.Frame(
+            self.history_list,
+            bg=COLORS["panel_bg_alt"],
+            highlightbackground=COLORS["border_soft"],
+            highlightthickness=1,
+            cursor="hand2",
+        )
+        card.pack(fill=tk.X, padx=12, pady=(12, 0))
+
+        content = tk.Frame(card, bg=COLORS["panel_bg_alt"])
+        content.pack(fill=tk.X, padx=14, pady=12)
+
+        text_frame = tk.Frame(content, bg=COLORS["panel_bg_alt"])
+        text_frame.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        tk.Label(
+            text_frame,
+            text=self._display_style_name(entry.get("style_name", "NEPOZNAT STIL")).upper(),
+            font=FONTS["section"],
+            bg=COLORS["panel_bg_alt"],
+            fg=COLORS["text"],
+            anchor="w",
+            wraplength=LAYOUT["history_width"] - 118,
+            justify="left",
+        ).pack(fill=tk.X)
+
+        tk.Label(
+            text_frame,
+            text=shorten_filename(entry.get("filename", "nepoznata_slika")),
+            font=FONTS["body"],
+            bg=COLORS["panel_bg_alt"],
+            fg=COLORS["text_muted"],
+            anchor="w",
+        ).pack(fill=tk.X, pady=(4, 0))
+
+        tk.Label(
+            content,
+            text="●",
+            font=("Segoe UI", 30, "bold"),
+            bg=COLORS["panel_bg_alt"],
+            fg=entry.get("color", COLORS["accent"]),
+        ).pack(side=tk.RIGHT, padx=(10, 0))
+        self._bind_history_card(card, entry)
+
+    def _bind_history_card(self, widget, entry):
+        # Klik na karticu povijesti prikazuje spremljeni rezultat
+        widget.bind("<Button-1>", lambda _event, item=entry: self._show_history_entry(item))
+        widget.bind("<Enter>", lambda _event: widget.configure(bg=COLORS["surface_hover"]))
+        widget.bind("<Leave>", lambda _event: widget.configure(bg=COLORS["panel_bg_alt"]))
+        for child in widget.winfo_children():
+            child.bind("<Button-1>", lambda _event, item=entry: self._show_history_entry(item))
+            self._bind_history_child(child, entry)
+
+    def _bind_history_child(self, widget, entry):
+        widget.configure(cursor="hand2")
+        widget.bind("<Button-1>", lambda _event, item=entry: self._show_history_entry(item))
+        for child in widget.winfo_children():
+            self._bind_history_child(child, entry)
+
+    def _show_history_entry(self, entry):
+        # Prikaz rezultata koji je spremljen u povijesti
+        self._show_history_preview(entry)
+        results = entry.get("results", [])
+        if not results and entry.get("style_name"):
+            results = [
+                {
+                    "name": entry["style_name"],
+                    "confidence": entry.get("confidence", 0) / 100,
+                    "period": "nije spremljeno",
+                    "regions": [],
+                    "materials": [],
+                    "features": [],
+                }
+            ]
+        if results:
+            self._show_analysis_results(results, save_to_history=False)
+            self._set_status("Prikazan je spremljeni rezultat iz povijesti.")
+            self._sync_analyze_button()
+
+    def _show_history_preview(self, entry):
+        # Prikaz slike povezane sa spremljenom analizom
+        preview_path = self._existing_path(*self._history_image_candidates(entry))
+        processed_path = self._existing_path(entry.get("processed_image_path"))
+
+        if preview_path:
+            try:
+                self.selected_image_path = preview_path
+                self.processed_image_path = processed_path or preview_path
+                self._load_preview_image(preview_path)
+                return
+            except Exception:
+                pass
+
+        self.selected_image_path = None
+        self.processed_image_path = None
+        self.image_label.configure(image="", text="📷")
+        self.image_title_label.configure(text=entry.get("filename", "Slika nije pronađena"))
+        self.image_hint_label.configure(
+            text="Originalna slika više nije dostupna na računalu.",
+            wraplength=max(self.image_preview_frame.winfo_width() - 60, 360),
+        )
+
+    def _existing_path(self, *paths):
+        # Pronalazi prvu postojeću putanju slike
+        for path in paths:
+            if not path:
+                continue
+            candidate = Path(path)
+            if candidate.exists():
+                return candidate
+        return None
+
+    def _sync_analyze_button(self):
+        if not self.selected_image_path or self.model_loading or self._current_image_has_history():
+            self.btn_analyze.configure(state=tk.DISABLED)
+        else:
+            self.btn_analyze.configure(state=tk.NORMAL)
+
+    def _current_image_has_history(self):
+        if not self.selected_image_path:
+            return False
+
+        selected_paths = {
+            self._normalize_path(self.selected_image_path),
+            self._normalize_path(self.processed_image_path),
+        }
+        selected_paths.discard("")
+
+        for entry in self.analysis_history:
+            history_paths = set()
+            for path in self._history_image_candidates(entry):
+                history_paths.add(self._normalize_path(path))
+            history_paths.discard("")
+            if selected_paths.intersection(history_paths):
+                return True
+        return False
+
+    def _normalize_path(self, path):
+        if not path:
+            return ""
+        try:
+            return str(Path(path).resolve(strict=False)).casefold()
+        except (OSError, TypeError, ValueError):
+            return str(path).casefold()
+
+    def _history_image_candidates(self, entry):
+        # Putanje za nove i starije zapise povijesti
+        candidates = [entry.get("image_path"), entry.get("processed_image_path")]
+        filename = entry.get("filename")
+        if filename:
+            processed_name = f"{Path(filename).stem.replace(' ', '_')}_processed.jpg"
+            candidates.append(Path("data") / "processed" / processed_name)
+        return candidates
+
+    def _update_history_scroll(self, _event=None):
+        # Osvježavanje scroll područja povijesti
+        self.history_canvas.configure(scrollregion=self.history_canvas.bbox("all"))
+
+    def _bind_history_mousewheel(self):
+        self.history_canvas.bind("<Enter>", self._activate_history_mousewheel)
+        self.history_canvas.bind("<Leave>", self._deactivate_history_mousewheel)
+
+    def _activate_history_mousewheel(self, _event=None):
+        if self._history_can_scroll():
+            self.history_canvas.bind_all("<MouseWheel>", self._scroll_history)
+
+    def _deactivate_history_mousewheel(self, _event=None):
+        self.history_canvas.unbind_all("<MouseWheel>")
+
+    def _scroll_history(self, event):
+        if not self._history_can_scroll():
+            return
+        self.history_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+    def _history_can_scroll(self):
+        if not self.analysis_history:
+            return False
+        scroll_bbox = self.history_canvas.bbox("all")
+        if not scroll_bbox:
+            return False
+        return scroll_bbox[3] > self.history_canvas.winfo_height()
+
+    def _resize_history_window(self, event):
+        # Kartice prate širinu panela povijesti
+        self.history_canvas.itemconfigure(self.history_window, width=event.width)
+
+    def clear_history(self):
+        # Brisanje povijesti uz potvrdu korisnika
+        confirmed = messagebox.askyesno(
+            "Brisanje povijesti",
+            "Odabrana radnja ne može se poništiti.\n\nJeste li sigurni da želite nastaviti?",
+        )
+        if not confirmed:
+            return
+
+        self.analysis_history = []
+        clear_analysis_history()
+        self._render_history()
+        self._set_status("Povijest analiza je očišćena.")
+        self._sync_analyze_button()
 
     def _write_readonly(self, widget, text):
         # Upis teksta u zaključani Text widget
