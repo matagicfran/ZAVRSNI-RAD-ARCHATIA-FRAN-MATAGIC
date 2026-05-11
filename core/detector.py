@@ -20,7 +20,12 @@ class ArchitectureDetector:
             raise RuntimeError("CLIP model nije učitan i detekcija se ne može pokrenuti.")
 
         image = self._load_image(image_path)
-        prompts = [style["prompt"] for style in ARCHITECTURE_STYLES]
+        prompts = []
+        prompt_style_indexes = []
+        for style_index, style in enumerate(ARCHITECTURE_STYLES):
+            style_prompts = style.get("prompts", [style["prompt"]])
+            prompts.extend(style_prompts)
+            prompt_style_indexes.extend([style_index] * len(style_prompts))
 
         inputs = self.model_manager.clip_processor(
             text=prompts,
@@ -37,7 +42,17 @@ class ArchitectureDetector:
 
         with torch.no_grad():
             outputs = self.model_manager.clip_model(**inputs)
-            scores = outputs.logits_per_image.softmax(dim=1)[0]
+            prompt_logits = outputs.logits_per_image[0]
+
+            style_logits = []
+            for style_index in range(len(ARCHITECTURE_STYLES)):
+                indexes = [
+                    prompt_index
+                    for prompt_index, mapped_style_index in enumerate(prompt_style_indexes)
+                    if mapped_style_index == style_index
+                ]
+                style_logits.append(prompt_logits[indexes].mean())
+            scores = torch.stack(style_logits).softmax(dim=0)
 
         return self._format_results(scores, top_k)
 

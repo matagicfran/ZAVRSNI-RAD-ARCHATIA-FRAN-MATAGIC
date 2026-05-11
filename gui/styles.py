@@ -14,6 +14,9 @@ COLORS = {
     "accent": "#D6B98A",
     "accent_hover": "#C9A977",
     "accent_dark": "#8F7144",
+    "fresh": "#27323A",
+    "fresh_text": "#9FC7D9",
+    "fresh_hover": "#33424C",
     "danger": "#C17B6E",
     "danger_bg": "#3A2925",
     "danger_hover": "#49312B",
@@ -36,7 +39,7 @@ FONTS = {
 # Osnovne dimenzije elemenata
 LAYOUT = {
     "sidebar_width": 280,
-    "history_width": 440,
+    "history_width": 500,
     "outer_pad": 26,
     "panel_pad": 22,
     "button_padx": 18,

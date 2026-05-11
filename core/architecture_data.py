@@ -317,9 +317,266 @@ ARCHITECTURE_STYLES = [
 ]
 
 
+STYLE_PROMPT_VARIANTS = {
+    "ancient_egyptian": [
+        "ancient Egyptian monumental temple facade with massive stone pylons, battered walls, carved columns and hieroglyphic reliefs",
+        "Egyptian architecture with lotus or papyrus columns, axial symmetry, heavy stone walls and carved symbolic decoration",
+        "ancient Egyptian tomb or temple architecture, monumental scale, flat roofline, pylons, obelisks and sunlit sandstone",
+        "Pharaonic architecture with hieroglyphs, colonnaded halls, massive gateways and rigid ceremonial geometry",
+        "not Greek or Roman classical architecture, but ancient Egyptian stone monument with pylons and carved reliefs",
+    ],
+    "classical_greek": [
+        "classical Greek temple with marble columns, triangular pediment, entablature and balanced proportional facade",
+        "Greek architecture with Doric Ionic or Corinthian colonnade, open peristyle, simple temple form and white stone",
+        "ancient Greek civic or sacred building with column rhythm, pediment sculpture and clear horizontal entablature",
+        "Hellenic architecture, freestanding temple, refined symmetry, no arches or domes, post and lintel construction",
+        "not Roman arches or Renaissance palace, but classical Greek temple architecture with pure column and pediment composition",
+    ],
+    "roman": [
+        "ancient Roman architecture with round arches, barrel vaults, concrete mass, amphitheater or monumental stone facade",
+        "Roman civic building with arcades, vaulted openings, engaged columns and heavy masonry construction",
+        "Roman imperial architecture, triumphal arch, aqueduct rhythm, dome or basilica scale, robust engineering",
+        "ancient Roman structure with repeated semicircular arches, stone or brick surfaces and monumental urban presence",
+        "not Greek post and lintel temple, but Roman architecture defined by arches, vaults, domes and concrete structure",
+    ],
+    "byzantine": [
+        "Byzantine church with central dome, brick and stone walls, round arches, sacred interior and golden mosaics",
+        "Byzantine architecture with domed cross plan, pendentives, layered arches and richly decorated religious surfaces",
+        "Eastern Christian church architecture with large dome, apses, brick patterns, marble columns and mosaic decoration",
+        "Byzantine sacred building, compact massing, arched windows, central plan and warm brick masonry",
+        "not Gothic vertical cathedral, but Byzantine domed church with mosaics, arches and central sacred space",
+    ],
+    "islamic": [
+        "Islamic architecture with minarets, domes, horseshoe arches, geometric tile patterns and ornate courtyard",
+        "mosque architecture with mihrab, arcaded courtyard, arabesque ornament, calligraphy and patterned ceramic tiles",
+        "Islamic building with pointed or horseshoe arches, muqarnas, decorative screens and repeated geometric motifs",
+        "Moorish or Persian Islamic architecture with colorful tilework, courtyards, slender towers and ornamental surfaces",
+        "not classical European facade, but Islamic architecture with minarets, arabesques and geometric nonfigurative decoration",
+    ],
+    "romanesque": [
+        "Romanesque church with thick stone walls, rounded arches, small windows and heavy defensive tower",
+        "Romanesque architecture with massive masonry, semicircular portals, simple carved capitals and compact basilica form",
+        "medieval Romanesque monastery or church, low heavy proportions, barrel vaults and narrow window openings",
+        "Romanesque facade with round arch entrance, sturdy piers, simple stone ornament and fortress like appearance",
+        "not Gothic vertical pointed arches, but Romanesque heavy walls, round arches and small windows",
+    ],
+    "gothic": [
+        "Gothic cathedral with pointed arches, flying buttresses, ribbed vaults, stained glass rose window and tall spires",
+        "medieval Gothic architecture with strong vertical emphasis, tracery windows, pinnacles and sculpted stone portals",
+        "Gothic church facade with lancet arches, rose window, high nave, buttresses and dramatic upward movement",
+        "Gothic architecture with delicate stone tracery, stained glass, pointed openings and skeletal structure",
+        "not Romanesque heavy round arches or Neogothic revival house, but original medieval Gothic cathedral architecture",
+    ],
+    "renaissance": [
+        "Renaissance architecture with harmonious proportions, classical pilasters, round arches, dome and ordered symmetry",
+        "Italian Renaissance palace facade with rustication, balanced window rhythm, cornice and classical restraint",
+        "Renaissance church or civic building with human scale, clear geometry, columns, arches and proportional composition",
+        "Renaissance architecture with calm symmetry, classical orders, square bays and measured facade organization",
+        "not Baroque movement or Neoclassical temple front, but Renaissance balanced proportions and early classical revival",
+    ],
+    "baroque": [
+        "Baroque architecture with dramatic curved facade, sculptural details, rich ornament, grand church and dynamic composition",
+        "Baroque palace or church with theatrical movement, oval spaces, heavy cornices, columns and deep shadow",
+        "Baroque facade with sweeping curves, broken pediments, statues, layered surfaces and emotional intensity",
+        "seventeenth century Baroque architecture, monumental axis, ornate stonework, domes and dramatic light",
+        "not calm Renaissance symmetry, but Baroque architecture with movement, drama, curves and sculptural richness",
+    ],
+    "rococo": [
+        "Rococo architecture with light ornate decoration, shell motifs, pastel colors, gilded stucco and elegant palace interior",
+        "Rococo interior or pavilion with asymmetrical scrolls, delicate ornament, floral details and playful luxury",
+        "eighteenth century Rococo design with soft colors, gilded frames, curved panels and intimate decorative elegance",
+        "Rococo architecture with shell shaped ornament, lightness, refined plasterwork and graceful irregular decoration",
+        "not heavy Baroque drama, but Rococo light pastel ornament, delicate curves and intimate decorative richness",
+    ],
+    "neoclassical": [
+        "Neoclassical architecture with grand columns, triangular pediment, symmetrical stone facade and classical temple front",
+        "Neoclassical civic building with strict symmetry, portico, clean walls, Greek or Roman orders and restrained ornament",
+        "eighteenth or nineteenth century Neoclassical facade, monumental colonnade, pediment and balanced academic composition",
+        "Neoclassical architecture with pale stone, temple like entrance, straight lines and sober classical details",
+        "not Art Nouveau curves or Baroque movement, but Neoclassical strict symmetry, columns and clean temple geometry",
+    ],
+    "palladian": [
+        "Palladian villa architecture with symmetrical facade, central portico, classical columns and Palladian window",
+        "Palladian country house with temple front, central axis, balanced wings, rusticated base and calm classical order",
+        "Andrea Palladio inspired villa, proportioned facade, pedimented portico, loggia and serene rural classical composition",
+        "Palladian architecture with five part symmetry, central hall emphasis, Venetian window and restrained classical detail",
+        "not Art Nouveau floral ornament or Victorian asymmetry, but Palladian villa symmetry with central portico and classical order",
+    ],
+    "victorian": [
+        "Victorian architecture with ornate house facade, steep roofs, bay windows, decorative gables and asymmetrical composition",
+        "Victorian building with mixed materials, patterned brick, towers, verandas, brackets and picturesque roofline",
+        "nineteenth century Victorian house, complex massing, tall chimneys, carved trim, bay windows and rich facade detail",
+        "Victorian architecture with eclectic ornament, decorative woodwork, steep gables and lively residential silhouette",
+        "not strict Palladian symmetry, but Victorian asymmetrical house with steep roofs, bays and decorative trim",
+    ],
+    "gothic_revival": [
+        "Gothic Revival architecture with pointed arches, decorative pinnacles, stained glass and historicist facade",
+        "Neogothic nineteenth century building with medieval inspired tracery, lancet windows, towers and vertical emphasis",
+        "Gothic Revival church or civic facade, pointed openings, carved stone details, buttresses and romantic historicism",
+        "Victorian era Gothic Revival architecture with ornamental pinnacles, steep rooflines and medieval references",
+        "not original medieval Gothic cathedral, but later historicist Gothic Revival with decorative pointed details",
+    ],
+    "art_nouveau": [
+        "Art Nouveau architecture with flowing organic lines, floral ornaments, decorative ironwork, curved facade and ceramic details",
+        "Secession or Art Nouveau facade with whiplash curves, plant motifs, asymmetry, stained glass and wrought iron balconies",
+        "Art Nouveau building with sinuous lines, nature inspired ornament, soft curves, decorative tiles and handmade surface detail",
+        "Vienna Secession or Belgian Art Nouveau architecture with stylized flowers, curved metalwork and artistic facade composition",
+        "not Palladian or Neoclassical symmetry, but Art Nouveau organic curves, floral ornament, asymmetry, iron and glass decoration",
+    ],
+    "art_deco": [
+        "Art Deco architecture with geometric ornament, stepped facade, vertical lines, zigzag patterns and elegant modern building",
+        "Art Deco tower or cinema facade with setbacks, sunburst motifs, chevrons, stylized reliefs and polished materials",
+        "1920s Art Deco building with symmetrical geometry, decorative metal, terracotta, strong vertical emphasis and luxury detail",
+        "Art Deco architecture with streamlined forms, stepped crown, angular patterns and machine age glamour",
+        "not Art Nouveau flowing floral curves, but Art Deco sharp geometry, zigzags, verticality and stylized ornament",
+    ],
+    "bauhaus": [
+        "Bauhaus architecture with white geometric volumes, flat roof, horizontal windows and functional modernist design",
+        "Bauhaus building with cubic forms, clean plaster walls, glass corners, simple railings and no applied ornament",
+        "early modern Bauhaus school architecture, rational composition, flat surfaces, industrial windows and functional clarity",
+        "Bauhaus design with asymmetrical blocks, white walls, ribbon windows and restrained modernist geometry",
+        "not decorative Art Deco, but Bauhaus functional white volumes, flat roof and minimal ornament",
+    ],
+    "modernism": [
+        "Modernist architecture with clean lines, flat roof, glass and concrete, minimal ornament and functional building",
+        "twentieth century modernist building with open facade, simple volumes, pilotis or large windows and abstract form",
+        "Modernist house or public building with flat planes, white or concrete surfaces, horizontal lines and rational layout",
+        "modern architecture with structural clarity, lack of historical ornament, glass walls and simple rectangular massing",
+        "not Postmodern historical reference or Brutalist raw mass, but Modernist clean functional form and minimal decoration",
+    ],
+    "international_style": [
+        "International Style architecture with glass curtain wall, steel frame, rectangular office tower and minimal facade",
+        "International Style high rise with flat roof, grid facade, glass and steel skin, no ornament and universal modern form",
+        "corporate modernist building with curtain wall, regular structural grid, sharp rectangular volume and smooth surfaces",
+        "Miesian International Style architecture with transparent glass facade, steel frame and elegant minimal geometry",
+        "not expressive Deconstructivism or decorative Art Deco, but International Style glass box with strict grid and no ornament",
+    ],
+    "brutalism": [
+        "Brutalist architecture with massive raw concrete volumes, rough texture, exposed structure and monumental geometric building",
+        "Brutalist building with board formed concrete, heavy cantilevers, deep shadows and fortress like sculptural massing",
+        "mid century Brutalism with exposed concrete, blocky forms, repetitive modules and uncompromising structural expression",
+        "Brutalist public building with raw material honesty, large concrete slabs, angular forms and monumental scale",
+        "not smooth International Style glass box, but Brutalist rough concrete mass, weight and exposed structure",
+    ],
+    "postmodernism": [
+        "Postmodern architecture with playful facade, historical references, colorful details, mixed forms and symbolic elements",
+        "Postmodern building with exaggerated classical fragments, irony, bright colors, unusual shapes and decorative signs",
+        "late twentieth century Postmodern architecture, eclectic facade, broken symmetry, playful ornament and contextual references",
+        "Postmodern design with mixed historical motifs, expressive entrance, colorful panels and intentionally theatrical composition",
+        "not pure Modernist minimalism, but Postmodern playful references, color, symbols and eclectic ornament",
+    ],
+    "high_tech": [
+        "High tech architecture with exposed steel structure, glass skin, visible services and industrial technology aesthetic",
+        "High tech building with external trusses, pipes, ducts, metal frames, transparent envelope and engineered expression",
+        "technological architecture with lightweight steel, glass atrium, visible mechanical systems and machine like details",
+        "High tech modern building with structural members displayed outside, modular components and industrial precision",
+        "not minimalist blank facade, but High tech exposed structure, services, steel and glass machinery aesthetic",
+    ],
+    "deconstructivism": [
+        "Deconstructivist architecture with fragmented forms, tilted planes, dynamic geometry and irregular metal and glass building",
+        "Deconstructivism with broken volumes, sharp angles, skewed walls, non orthogonal geometry and dramatic movement",
+        "contemporary deconstructivist museum or cultural building, fractured shell, folded surfaces and unstable composition",
+        "Deconstructivist architecture with collision of forms, diagonal lines, warped facade and expressive complexity",
+        "not calm Minimalism or International Style grid, but Deconstructivist fragmented tilted irregular geometry",
+    ],
+    "contemporary": [
+        "Contemporary architecture with clean volumes, large glass surfaces, concrete and wood, sustainable modern design",
+        "current contemporary building with mixed materials, open interiors, refined details, glass walls and simple forms",
+        "twenty first century architecture with expressive but clean massing, modern facade systems and contextual materials",
+        "Contemporary house or public building with large glazing, flat roof, natural materials and understated modern elegance",
+        "not historic revival or strict Bauhaus, but recent contemporary architecture with clean volumes and modern material mix",
+    ],
+    "minimalism": [
+        "Minimalist architecture with simple geometric volumes, clean white surfaces, minimal details and calm modern facade",
+        "minimalist building with pure forms, hidden joints, neutral colors, sparse openings and quiet composition",
+        "minimal architecture with flat planes, restrained materials, no ornament, precise edges and serene empty surfaces",
+        "Minimalist house with simple box volumes, smooth walls, large controlled openings and reduced visual complexity",
+        "not Postmodern playfulness or Art Deco ornament, but Minimalist simplicity, silence, plain surfaces and very few details",
+    ],
+    "organic": [
+        "Organic architecture with building integrated with nature, natural materials, stone and wood, flowing forms and terraces",
+        "organic building with low horizontal lines, natural site integration, warm materials and forms inspired by landscape",
+        "Frank Lloyd Wright inspired organic architecture with stone, wood, overhangs, terraces and harmony with terrain",
+        "architecture connected to nature with irregular flowing plan, natural textures, broad eaves and landscape integration",
+        "not strict geometric International Style, but Organic architecture shaped by site, nature, stone, wood and flowing forms",
+    ],
+    "vernacular": [
+        "Vernacular architecture with local materials, traditional regional building, climate adapted form and simple construction",
+        "traditional local house with stone, wood, clay or thatch, practical form, regional details and handmade character",
+        "vernacular rural architecture with modest scale, local craft, climate response, simple openings and traditional roof",
+        "regional building tradition using available materials, simple structure, everyday function and inherited local form",
+        "not designed monumental style, but Vernacular architecture rooted in local material, climate and folk construction",
+    ],
+    "mediterranean": [
+        "Mediterranean architecture with stone walls, terracotta roof tiles, arches, shutters, light stucco facade and coastal house",
+        "Mediterranean coastal building with white or warm plaster, tiled roof, balconies, wooden shutters and shaded terraces",
+        "Dalmatian Italian or Spanish Mediterranean architecture with stone texture, loggia, arched openings and sun adapted facade",
+        "Mediterranean villa with clay roof tiles, pale walls, wrought iron, courtyards and relaxed coastal proportions",
+        "not Gothic or Modernist glass facade, but Mediterranean stone, stucco, terracotta roof, shutters and shaded arches",
+    ],
+    "ottoman": [
+        "Ottoman architecture with large central dome, slender minarets, arched courtyard, mosque complex and rhythmic windows",
+        "Ottoman mosque with cascading domes, pencil minarets, portico, stone and brick walls and balanced sacred composition",
+        "Sinan inspired Ottoman architecture with central dome hierarchy, semi domes, arcades and elegant vertical minarets",
+        "Ottoman religious complex with courtyard, domed prayer hall, repeated arched windows and refined masonry",
+        "not Mughal marble palace, but Ottoman mosque architecture with cascading domes and slender minarets",
+    ],
+    "mughal": [
+        "Mughal architecture with white marble dome, red sandstone, symmetrical garden, minarets and ornate arched facade",
+        "Mughal palace or mausoleum with bulbous dome, chhatri kiosks, pietra dura inlay, pointed arches and axial symmetry",
+        "Indo Islamic Mughal building with red sandstone walls, white marble details, garden axis and richly carved surfaces",
+        "Mughal architecture with monumental gateway, large central dome, minarets, decorative jali screens and formal gardens",
+        "not Ottoman cascading mosque, but Mughal architecture with bulbous dome, marble, red sandstone and symmetrical garden",
+    ],
+    "chinese_traditional": [
+        "traditional Chinese architecture with curved tiled roof, wooden structure, red columns, courtyard and symmetrical layout",
+        "Chinese temple or palace architecture with sweeping roof eaves, bracket sets, axial courtyards and painted timber",
+        "traditional Chinese building with upturned roof corners, ceramic tiles, timber columns, red and gold details",
+        "Chinese courtyard architecture with hierarchical roofs, enclosed compounds, decorative ridge ornaments and wooden frame",
+        "not Japanese minimal timber house, but Chinese traditional architecture with curved roofs, red columns and axial courtyard",
+    ],
+    "japanese_traditional": [
+        "traditional Japanese architecture with wooden structure, deep eaves, sliding doors, tatami proportions, garden and calm simplicity",
+        "Japanese temple or house with timber frame, shoji screens, low horizontal roof, veranda and restrained natural materials",
+        "traditional Japanese building with modular rooms, exposed wood, paper screens, tiled or thatched roof and garden relation",
+        "Japanese architecture with simplicity, asymmetry, deep eaves, raised wooden floor and quiet connection to nature",
+        "not Chinese red ornate courtyard, but Japanese traditional architecture with calm wood, deep eaves and sliding screens",
+    ],
+    "prairie": [
+        "Prairie style architecture with strong horizontal lines, low pitched roof, wide eaves, bands of windows and landscape integration",
+        "Frank Lloyd Wright Prairie house with broad overhangs, brick or stucco, horizontal emphasis and central hearth composition",
+        "Prairie style residence with low roof, long terraces, ribbon windows, natural materials and flat Midwestern landscape feel",
+        "early twentieth century Prairie architecture with low horizontal massing, grouped windows and sheltering roof planes",
+        "not Victorian vertical ornament, but Prairie style horizontal lines, wide eaves and integration with landscape",
+    ],
+    "constructivism": [
+        "Constructivist architecture with dynamic geometric volumes, industrial materials, concrete and steel and avant garde functional design",
+        "Russian Constructivism with intersecting cylinders, glass, steel frames, bold diagonal composition and social modernity",
+        "Constructivist building with abstract geometric forms, exposed structural logic, industrial aesthetic and revolutionary graphic energy",
+        "1920s Soviet avant garde architecture with functional volumes, sharp geometry, ramps, towers and machine age materials",
+        "not Bauhaus calm white boxes, but Constructivist dynamic industrial geometry, diagonals and avant garde composition",
+    ],
+    "sustainable": [
+        "sustainable green architecture with green roof, solar panels, timber structure, natural ventilation and energy efficient facade",
+        "eco architecture with planted roofs, photovoltaic panels, shading devices, recycled materials and passive climate design",
+        "green contemporary building with living walls, wood structure, daylighting, rainwater systems and environmental technology",
+        "sustainable architecture with low energy envelope, natural materials, vegetation, solar control and climate responsive form",
+        "not simply contemporary glass design, but sustainable architecture visibly using green roofs, solar panels and ecological systems",
+    ],
+}
+
+
+for style in ARCHITECTURE_STYLES:
+    style["prompts"] = STYLE_PROMPT_VARIANTS.get(style["id"], [style["prompt"]])
+    style["prompt"] = style["prompts"][0]
+
+
 def get_style_prompts():
     # Promptovi koji se šalju modelu za prepoznavanje stilova
-    return [style["prompt"] for style in ARCHITECTURE_STYLES]
+    prompts = []
+    for style in ARCHITECTURE_STYLES:
+        prompts.extend(style.get("prompts", [style["prompt"]]))
+    return prompts
 
 
 def get_style_names():

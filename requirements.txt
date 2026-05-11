@@ -1,10 +1,12 @@
-# ARCHATIA dependencies
+# ARCHATIA - potrebne Python biblioteke
 
-# Prikaz previewa slike i priprema slike
+# Obrada i prikaz slika
 Pillow>=10.0.0
+
+# Drag-and-drop podrska u Tkinter sucelju na Windowsu
 tkinterdnd2>=0.4.3
 windnd>=1.0.7
 
-# Lokalni AI modeli i CLIP detekcija
+# Lokalna AI analiza i CLIP model
 torch>=2.0.0
 transformers>=4.40.0

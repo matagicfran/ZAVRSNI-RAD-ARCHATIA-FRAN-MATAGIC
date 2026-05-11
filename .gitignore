@@ -2,6 +2,7 @@ __pycache__/
 *.pyc
 venv/
 .env
-models/
+models/*
+!models/.gitkeep
 data/processed/
 data/history/

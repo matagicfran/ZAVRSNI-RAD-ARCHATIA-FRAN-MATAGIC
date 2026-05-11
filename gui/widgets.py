@@ -9,6 +9,7 @@ class SidebarButton(tk.Button):
         variants = {
             "primary": (COLORS["accent"], COLORS["panel_bg_alt"], COLORS["accent_hover"]),
             "secondary": (COLORS["surface"], COLORS["text"], COLORS["surface_hover"]),
+            "fresh": (COLORS["fresh"], COLORS["fresh_text"], COLORS["fresh_hover"]),
             "danger": (COLORS["danger_bg"], COLORS["danger"], COLORS["danger_hover"]),
         }
         bg, fg, hover_bg = variants.get(variant, variants["secondary"])

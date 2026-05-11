@@ -3,8 +3,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-MODEL_CACHE_DIR = Path("models") / "huggingface"
-LOCAL_CLIP_DIR = Path("models") / "clip-vit-base-patch32"
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+MODEL_CACHE_DIR = PROJECT_ROOT / "models" / "huggingface"
+LOCAL_CLIP_DIR = PROJECT_ROOT / "models" / "clip-vit-base-patch32"
 CLIP_MODEL_NAME = "openai/clip-vit-base-patch32"
 
 
@@ -107,7 +108,10 @@ class ModelManager:
             or (LOCAL_CLIP_DIR / "pytorch_model.bin").exists()
         )
         has_processor = (
-            (LOCAL_CLIP_DIR / "preprocessor_config.json").exists()
+            (
+                (LOCAL_CLIP_DIR / "preprocessor_config.json").exists()
+                or (LOCAL_CLIP_DIR / "processor_config.json").exists()
+            )
             and (LOCAL_CLIP_DIR / "tokenizer_config.json").exists()
         )
         return has_config and has_model and has_processor
